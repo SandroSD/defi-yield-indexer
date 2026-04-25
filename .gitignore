@@ -1,0 +1,9 @@
+node_modules
+.env
+dist
+artifacts
+cache
+typechain-types
+*.db
+*.db-journal
+.DS_Store
