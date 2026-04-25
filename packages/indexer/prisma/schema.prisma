@@ -1,0 +1,19 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model TransactionEvent {
+  id              String   @id @default(cuid())
+  transactionHash String   @unique
+  eventType       String   // "Deposit" or "Withdraw"
+  userAddress     String
+  amount          String
+  newTotalBalance String
+  blockNumber     Int
+  createdAt       DateTime @default(now())
+}
