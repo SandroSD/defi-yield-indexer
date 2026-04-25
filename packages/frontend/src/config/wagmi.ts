@@ -1,26 +1,25 @@
 import { http, createConfig } from 'wagmi'
-import { mainnet, localhost } from 'wagmi/chains'
-import { getDefaultConfig } from 'connectkit'
+import { injected } from 'wagmi/connectors'
 
-export const config = createConfig(
-  getDefaultConfig({
-    // Your dApps chains
-    chains: [localhost, mainnet],
-    transports: {
-      // RPC URL for each chain
-      [localhost.id]: http('http://127.0.0.1:8545'),
-      [mainnet.id]: http(),
-    },
+// Definimos una red personalizada para forzar el ID 1337
+const local1337 = {
+  id: 1337,
+  name: 'Localhost 1337',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['http://127.0.0.1:8545'] },
+  },
+} as const;
 
-    // Required API Keys
-    walletConnectProjectId: "fd377510d931934988716b472147a467", // Public demo key
-
-    // Required App Info
-    appName: "DeFi Yield Vault",
-
-    // Optional App Info
-    appDescription: "Your professional DeFi investment dashboard",
-    appUrl: "https://family.co", // Your App's URL
-    appIcon: "https://family.co/logo.png", // Your App's Icon
-  }),
-)
+export const config = createConfig({
+  chains: [local1337],
+  connectors: [
+    injected({ 
+      target: 'metaMask',
+      shimDisconnect: true 
+    }),
+  ],
+  transports: {
+    [local1337.id]: http('http://127.0.0.1:8545'),
+  },
+})

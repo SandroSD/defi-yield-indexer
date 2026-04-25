@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { ConnectKitButton } from "connectkit";
-import { useAccount, useBalance, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useState, useEffect } from "react";
+import { useAccount, useBalance, useReadContract, useWriteContract, useWaitForTransactionReceipt, useConnect, useDisconnect } from "wagmi";
 import { parseEther, formatEther } from "viem";
-import { useQuery, gql } from "@apollo/client";
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Activity, LayoutDashboard, Clock } from "lucide-react";
+import { useQuery, gql } from "@apollo/client/index";
+import { Wallet, ArrowDownCircle, ArrowUpCircle, Activity, LayoutDashboard, Clock, Power } from "lucide-react";
 
-// Query para nuestro indexador
+// Query para nuestro indexador...
 const GET_RECENT_TXS = gql`
   query GetRecentTxs {
     recentTransactions(limit: 5) {
@@ -31,7 +30,25 @@ const ABI = [
 
 export default function Home() {
   const { address, isConnected } = useAccount();
+  const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
   const [amount, setAmount] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  // Evitar error de Hydration
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const handleDisconnect = () => {
+    disconnect();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('wagmi.store');
+      localStorage.removeItem('wagmi.connected');
+      localStorage.removeItem('wagmi.recentConnectorId');
+      window.location.reload();
+    }
+  };
 
   // 1. Leer datos del Contrato
   const { data: userVaultBalance } = useReadContract({
@@ -74,7 +91,7 @@ export default function Home() {
 
   // 3. Consultar datos del Indexador GraphQL
   const { data: indexerData, loading: indexerLoading } = useQuery(GET_RECENT_TXS, {
-    pollInterval: 5000, // Refrescar cada 5 segundos
+    pollInterval: 5000,
   });
 
   return (
@@ -87,11 +104,37 @@ export default function Home() {
           </div>
           <h1 className="text-xl font-bold tracking-tight">Charged Cosmos DeFi</h1>
         </div>
-        <ConnectKitButton />
+        
+        {mounted && (
+          isConnected ? (
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Connected</span>
+                <span className="text-sm font-mono text-blue-400">{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+              </div>
+              <button 
+                onClick={handleDisconnect}
+                className="p-2 bg-red-500/10 border border-red-500/20 rounded-xl hover:bg-red-500/20 transition-all text-red-500"
+                title="Disconnect Wallet"
+              >
+                <Power size={20} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button 
+                onClick={() => connect({ connector: connectors[0] })}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-6 py-2 rounded-xl transition-all flex items-center gap-2"
+              >
+                <Wallet size={16} />
+                Connect MetaMask
+              </button>
+            </div>
+          )
+        )}
       </nav>
 
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Estadísticas Principales */}
         <div className="lg:col-span-2 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-[#141414] border border-white/5 p-6 rounded-2xl">
@@ -114,7 +157,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Formulario de Interacción */}
           <div className="bg-[#141414] border border-white/5 p-8 rounded-2xl">
             <h3 className="text-lg font-semibold mb-6">Vault Management</h3>
             <div className="space-y-6">
@@ -129,11 +171,13 @@ export default function Home() {
                 />
               </div>
 
-              {!isConnected ? (
+              {mounted && !isConnected && (
                 <div className="text-center p-4 bg-blue-600/10 border border-blue-600/20 rounded-xl">
                   <p className="text-blue-400 text-sm">Connect your wallet to interact with the vault</p>
                 </div>
-              ) : (
+              )}
+
+              {mounted && isConnected && (
                 <div className="grid grid-cols-2 gap-4">
                   <button 
                     onClick={handleDeposit}
@@ -165,7 +209,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Sidebar: Indexer Activity */}
         <div className="bg-[#141414] border border-white/5 p-6 rounded-2xl">
           <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
             <Activity size={18} className="text-blue-500" />
