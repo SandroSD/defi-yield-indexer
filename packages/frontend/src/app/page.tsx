@@ -4,9 +4,23 @@ import { useState } from "react";
 import { ConnectKitButton } from "connectkit";
 import { useAccount, useBalance, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseEther, formatEther } from "viem";
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Activity, LayoutDashboard } from "lucide-react";
+import { useQuery, gql } from "@apollo/client";
+import { Wallet, ArrowDownCircle, ArrowUpCircle, Activity, LayoutDashboard, Clock } from "lucide-react";
 
-// Dirección del contrato que desplegamos antes (Placeholder para desarrollo local)
+// Query para nuestro indexador
+const GET_RECENT_TXS = gql`
+  query GetRecentTxs {
+    recentTransactions(limit: 5) {
+      id
+      eventType
+      amount
+      userAddress
+      transactionHash
+    }
+  }
+`;
+
+// Dirección del contrato...
 const CONTRACT_ADDRESS = "0x5fbdb2315678afecb367f032d93f642f64180aa3";
 const ABI = [
   {"inputs":[],"name":"deposit","outputs":[],"stateMutability":"payable","type":"function"},
@@ -57,6 +71,11 @@ export default function Home() {
       args: [parseEther(amount)],
     });
   };
+
+  // 3. Consultar datos del Indexador GraphQL
+  const { data: indexerData, loading: indexerLoading } = useQuery(GET_RECENT_TXS, {
+    pollInterval: 5000, // Refrescar cada 5 segundos
+  });
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-8">
@@ -146,24 +165,37 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Sidebar: Indexer Activity (Mockup for now, real GraphQL next) */}
+        {/* Sidebar: Indexer Activity */}
         <div className="bg-[#141414] border border-white/5 p-6 rounded-2xl">
           <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
             <Activity size={18} className="text-blue-500" />
             Live Activity
           </h3>
           <div className="space-y-4">
-            <div className="p-4 bg-[#0a0a0a] rounded-xl border border-white/5">
-              <p className="text-xs text-gray-500 mb-1">Recent Deposit</p>
-              <p className="text-sm font-medium">0.5 ETH deposited</p>
-              <p className="text-[10px] text-blue-500 mt-2 font-mono">0x45f2...3a1e</p>
-            </div>
-            <div className="p-4 bg-[#0a0a0a] rounded-xl border border-white/5">
-              <p className="text-xs text-gray-500 mb-1">Recent Withdraw</p>
-              <p className="text-sm font-medium">0.2 ETH withdrawn</p>
-              <p className="text-[10px] text-blue-500 mt-2 font-mono">0x1a8c...9b2d</p>
-            </div>
-            <p className="text-center text-xs text-gray-600 mt-4 italic">Powered by Charged Indexer</p>
+            {indexerLoading && <p className="text-xs text-gray-500">Loading events...</p>}
+            
+            {indexerData?.recentTransactions.map((tx: any) => (
+              <div key={tx.id} className="p-4 bg-[#0a0a0a] rounded-xl border border-white/5">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock size={12} className="text-gray-500" />
+                  <p className="text-xs text-gray-500">{tx.eventType}</p>
+                </div>
+                <p className="text-sm font-medium">
+                  {formatEther(BigInt(tx.amount))} ETH
+                </p>
+                <p className="text-[10px] text-blue-500 mt-2 font-mono truncate">
+                  {tx.transactionHash}
+                </p>
+              </div>
+            ))}
+
+            {!indexerLoading && indexerData?.recentTransactions.length === 0 && (
+              <p className="text-xs text-gray-500 italic text-center">No transactions indexed yet.</p>
+            )}
+
+            <p className="text-center text-xs text-gray-600 mt-4 italic border-t border-white/5 pt-4">
+              Real-time GraphQL Indexer
+            </p>
           </div>
         </div>
       </div>
