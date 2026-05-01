@@ -1,0 +1,46 @@
+name: Smart Contract Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'packages/contracts/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/contracts/**'
+
+jobs:
+  test:
+    name: Hardhat Tests & Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run smart contract tests
+        run: pnpm --filter @portfolio/contracts test
+
+      - name: Generate coverage report
+        run: pnpm --filter @portfolio/contracts coverage
+
+      - name: Upload coverage summary
+        run: |
+          echo "## 📊 Smart Contract Coverage" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat packages/contracts/coverage/lcov.info | grep -E "^(SF|DA|LF|LH)" | head -50 >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
