@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model TransactionEvent {
@@ -12,8 +12,8 @@ model TransactionEvent {
   transactionHash String   @unique
   eventType       String   // "Deposit" or "Withdraw"
   userAddress     String
-  amount          String
-  newTotalBalance String
+  assets          String
+  shares          String
   blockNumber     Int
   createdAt       DateTime @default(now())
 }

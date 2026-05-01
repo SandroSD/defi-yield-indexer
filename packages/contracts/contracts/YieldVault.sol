@@ -1,53 +1,54 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
 /**
  * @title YieldVault
- * @dev A simple vault for depositing and withdrawing ETH.
- * Demonstrates security best practices and event emission for indexing.
+ * @dev An ERC-4626 compliant tokenized vault.
+ * Integrates Chainlink Price Feeds to calculate the USD value of total assets.
  */
-contract YieldVault is ReentrancyGuard {
-    mapping(address => uint256) public balances;
-    uint256 public totalAssets;
-
-    event Deposit(address indexed user, uint256 amount, uint256 newTotalBalance);
-    event Withdraw(address indexed user, uint256 amount, uint256 newTotalBalance);
-
-    error InsufficientBalance();
-    error AmountMustBeGreaterThanZero();
+contract YieldVault is ERC4626 {
+    AggregatorV3Interface public dataFeed;
 
     /**
-     * @dev Deposit ETH into the vault.
+     * @dev Constructor
+     * @param _asset The underlying ERC20 asset (e.g. mUSDC)
+     * @param _dataFeed The Chainlink price feed address
      */
-    function deposit() external payable nonReentrant {
-        if (msg.value == 0) revert AmountMustBeGreaterThanZero();
-
-        balances[msg.sender] += msg.value;
-        totalAssets += msg.value;
-
-        emit Deposit(msg.sender, msg.value, balances[msg.sender]);
+    constructor(IERC20 _asset, address _dataFeed) 
+        ERC4626(_asset) 
+        ERC20("Yield Vault Shares", "yvUSDC") 
+    {
+        dataFeed = AggregatorV3Interface(_dataFeed);
     }
 
     /**
-     * @dev Withdraw ETH from the vault.
-     * @param amount The amount of ETH to withdraw.
+     * @dev Returns the latest price of the asset in USD.
+     * Assumes the feed returns 8 decimals (standard for USD pairs).
      */
-    function withdraw(uint256 amount) external nonReentrant {
-        if (amount == 0) revert AmountMustBeGreaterThanZero();
-        if (balances[msg.sender] < amount) revert InsufficientBalance();
-
-        balances[msg.sender] -= amount;
-        totalAssets -= amount;
-
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
-        if (!success) revert("Transfer failed");
-
-        emit Withdraw(msg.sender, amount, balances[msg.sender]);
+    function getLatestPrice() public view returns (int256) {
+        (
+            /* uint80 roundID */,
+            int256 answer,
+            /*uint startedAt*/,
+            /*uint timeStamp*/,
+            /*uint80 answeredInRound*/
+        ) = dataFeed.latestRoundData();
+        return answer;
     }
 
-    receive() external payable {
-        // Fallback for direct ETH transfers
+    /**
+     * @dev Returns the total USD value of the vault's assets.
+     * USD feeds have 8 decimals.
+     * Formula: (totalAssets * price) / (10 ** assetDecimals)
+     */
+    function getTotalValueUSD() public view returns (uint256) {
+        int256 price = getLatestPrice();
+        if (price <= 0) return 0;
+        
+        uint256 assetDecimals = decimals(); // ERC4626 defaults to asset decimals
+        return (totalAssets() * uint256(price)) / (10 ** assetDecimals);
     }
 }

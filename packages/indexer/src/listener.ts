@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 
 // ── Chain configuration ───────────────────────────────────────────────────────
 const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:8545';
-const CONTRACT_ADDRESS = (process.env.CONTRACT_ADDRESS || '0x5fbdb2315678afecb367f032d93f642f64180aa3') as `0x${string}`;
+const CONTRACT_ADDRESS = (process.env.CONTRACT_ADDRESS || '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0') as `0x${string}`;
 
 // Detect chain dynamically from the RPC (Sepolia = 11155111, local = 1337)
 const isLocalNetwork = RPC_URL.includes('127.0.0.1') || RPC_URL.includes('localhost');
@@ -34,9 +34,9 @@ const client = createPublicClient({
   transport: http(RPC_URL),
 });
 
-// ── Event ABIs ────────────────────────────────────────────────────────────────
-const depositEventAbi = parseAbiItem('event Deposit(address indexed user, uint256 amount, uint256 newTotalBalance)');
-const withdrawEventAbi = parseAbiItem('event Withdraw(address indexed user, uint256 amount, uint256 newTotalBalance)');
+// ── Event ABIs (ERC-4626) ──────────────────────────────────────────────────────
+const depositEventAbi = parseAbiItem('event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)');
+const withdrawEventAbi = parseAbiItem('event Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)');
 
 // ── Main listener ─────────────────────────────────────────────────────────────
 async function startListening() {
@@ -50,8 +50,8 @@ async function startListening() {
     event: depositEventAbi,
     onLogs: async (logs) => {
       for (const log of logs) {
-        const { user, amount, newTotalBalance } = log.args;
-        console.log(`📥 Deposit: ${amount?.toString()} wei from ${user} (block ${log.blockNumber})`);
+        const { owner, assets, shares } = log.args;
+        console.log(`📥 Deposit: ${assets?.toString()} assets from ${owner} (block ${log.blockNumber})`);
         
         await prisma.transactionEvent.upsert({
           where: { transactionHash: log.transactionHash as string },
@@ -59,9 +59,9 @@ async function startListening() {
           create: {
             transactionHash: log.transactionHash as string,
             eventType: 'Deposit',
-            userAddress: user as string,
-            amount: amount?.toString() || '0',
-            newTotalBalance: newTotalBalance?.toString() || '0',
+            userAddress: owner as string,
+            assets: assets?.toString() || '0',
+            shares: shares?.toString() || '0',
             blockNumber: Number(log.blockNumber),
           },
         });
@@ -77,8 +77,8 @@ async function startListening() {
     event: withdrawEventAbi,
     onLogs: async (logs) => {
       for (const log of logs) {
-        const { user, amount, newTotalBalance } = log.args;
-        console.log(`📤 Withdraw: ${amount?.toString()} wei from ${user} (block ${log.blockNumber})`);
+        const { owner, assets, shares } = log.args;
+        console.log(`📤 Withdraw: ${assets?.toString()} assets from ${owner} (block ${log.blockNumber})`);
         
         await prisma.transactionEvent.upsert({
           where: { transactionHash: log.transactionHash as string },
@@ -86,9 +86,9 @@ async function startListening() {
           create: {
             transactionHash: log.transactionHash as string,
             eventType: 'Withdraw',
-            userAddress: user as string,
-            amount: amount?.toString() || '0',
-            newTotalBalance: newTotalBalance?.toString() || '0',
+            userAddress: owner as string,
+            assets: assets?.toString() || '0',
+            shares: shares?.toString() || '0',
             blockNumber: Number(log.blockNumber),
           },
         });

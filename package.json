@@ -5,8 +5,8 @@
   "scripts": {
     "test": "pnpm -r test",
     "build": "pnpm -r build",
-    "node": "pnpm --filter @portfolio/contracts node",
     "deploy": "pnpm --filter @portfolio/contracts deploy",
+    "install:all": "pnpm install",
     "dev": "concurrently -n \"NODE,LISTENER,SERVER,WEB\" -c \"magenta,yellow,blue,cyan\" \"pnpm node\" \"pnpm --filter @portfolio/indexer dev:listener\" \"pnpm --filter @portfolio/indexer dev:server\" \"pnpm --filter @portfolio/frontend dev\""
   },
   "devDependencies": {
