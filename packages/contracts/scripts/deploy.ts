@@ -3,22 +3,27 @@ import { ethers, network, run } from "hardhat";
 async function main() {
   console.log(`\n🚀 Deploying YieldVault Stack to network: ${network.name}...`);
 
-  // 1. Deploy MockERC20
+  let tokenAddress: string;
+  let aggregatorAddress: string;
+
+  // 1. Handle Underlying Asset (MockERC20)
   console.log("\nDeploying MockERC20...");
   const mockToken = await ethers.deployContract("MockERC20");
   await mockToken.waitForDeployment();
-  const tokenAddress = await mockToken.getAddress();
+  tokenAddress = await mockToken.getAddress();
   console.log(`✅ MockERC20 deployed to: ${tokenAddress}`);
 
-  // 2. Deploy MockV3Aggregator (Simulating a $1.00 stablecoin price with 8 decimals)
+  // 2. Handle Price Feed (Chainlink)
+  // On Sepolia, we could use a real feed, but for this portfolio piece 
+  // we deploy a Mock so we can control the 'mUSDC' price for the demo.
   console.log("\nDeploying MockV3Aggregator...");
   const INITIAL_PRICE = 100000000; // $1.00 (8 decimals)
   const mockAggregator = await ethers.deployContract("MockV3Aggregator", [8, INITIAL_PRICE]);
   await mockAggregator.waitForDeployment();
-  const aggregatorAddress = await mockAggregator.getAddress();
+  aggregatorAddress = await mockAggregator.getAddress();
   console.log(`✅ MockV3Aggregator deployed to: ${aggregatorAddress}`);
 
-  // 3. Deploy YieldVault
+  // 3. Deploy YieldVault (ERC-4626)
   console.log("\nDeploying YieldVault...");
   const yieldVault = await ethers.deployContract("YieldVault", [tokenAddress, aggregatorAddress]);
   await yieldVault.waitForDeployment();
@@ -44,20 +49,26 @@ async function main() {
         address: contractAddress,
         constructorArguments: [tokenAddress, aggregatorAddress],
       });
-      console.log("✅ Contracts verified on Etherscan!");
-    } catch (e) {
-      console.error("Verification error:", e);
+      console.log("✅ All contracts verified on Etherscan!");
+    } catch (e: any) {
+      if (e.message.toLowerCase().includes("already verified")) {
+        console.log("✅ Contracts already verified!");
+      } else {
+        console.error("Verification error:", e);
+      }
     }
+    console.log(`🔗 YieldVault: https://sepolia.etherscan.io/address/${contractAddress}`);
   }
 
   // Final summary for the frontend
-  console.log("\n=============================================");
-  console.log("🔥 DEPLOYMENT SUMMARY (Update these in frontend & indexer)");
-  console.log("=============================================");
-  console.log(`NEXT_PUBLIC_VAULT_ADDRESS=${contractAddress}`);
-  console.log(`NEXT_PUBLIC_TOKEN_ADDRESS=${tokenAddress}`);
-  console.log(`NEXT_PUBLIC_ORACLE_ADDRESS=${aggregatorAddress}`);
-  console.log("=============================================\n");
+  console.log("\n=================================================");
+  console.log("🔥 DEPLOYMENT SUMMARY");
+  console.log("=================================================");
+  console.log(`NETWORK: ${network.name}`);
+  console.log(`VAULT_ADDRESS: ${contractAddress}`);
+  console.log(`TOKEN_ADDRESS: ${tokenAddress}`);
+  console.log(`ORACLE_ADDRESS: ${aggregatorAddress}`);
+  console.log("=================================================\n");
 }
 
 main().catch((error) => {
